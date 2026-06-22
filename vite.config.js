@@ -14,5 +14,10 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setup.js',
     css: false,
+    // Unit + integration tests live under src/ as *.test.jsx / *.integration.test.jsx
+    // (both end in .test.*). Playwright e2e specs live in e2e/ as *.spec.js and must
+    // NOT be collected by Vitest.
+    include: ['src/**/*.test.{js,jsx}'],
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
   },
 })

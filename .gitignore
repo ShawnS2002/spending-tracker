@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 coverage
+playwright-report
+test-results
+/playwright/.cache
 *.local
 
 # Local env overrides only — committed .env.development/.env.production hold
