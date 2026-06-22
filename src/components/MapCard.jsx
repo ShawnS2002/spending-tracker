@@ -1,43 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { SANS, SERIF } from "../lib/constants";
 import { formatMoney, formatRelativeDate } from "../lib/utils";
 import Icon from "./Icon";
 
-function buildMap(container, expenses, categories, colors, onPinClick) {
-  const L = window.L;
-
+function buildMap(container, expenses, colors, onPinClick) {
   const coords = expenses.map((e) => [e.locationCoords.lat, e.locationCoords.lng]);
   const bounds = L.latLngBounds(coords);
   const center = bounds.getCenter();
 
   const map = L.map(container, { zoomControl: true, attributionControl: false }).setView(center, 12);
-  map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+  if (coords.length > 1) {
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+  }
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "© OpenStreetMap contributors",
+    maxZoom: 19,
   }).addTo(map);
 
   const clusterGroup = L.markerClusterGroup({
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();
+      const size = count > 99 ? 44 : count > 9 ? 38 : 32;
       return L.divIcon({
         html: `<div style="
-          width:${count > 99 ? 44 : count > 9 ? 38 : 32}px;
-          height:${count > 99 ? 44 : count > 9 ? 38 : 32}px;
-          border-radius:50%;
-          background:${colors.teal};
-          color:#fff;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          font-size:13px;
-          font-weight:700;
-          font-family:${SANS};
+          width:${size}px;height:${size}px;border-radius:50%;
+          background:${colors.teal};color:#fff;
+          display:flex;align-items:center;justify-content:center;
+          font-size:13px;font-weight:700;font-family:${SANS};
           box-shadow:0 0 0 4px ${colors.teal}44;
         ">${count}</div>`,
         className: "",
-        iconSize: [count > 99 ? 44 : count > 9 ? 38 : 32, count > 99 ? 44 : count > 9 ? 38 : 32],
+        iconSize: [size, size],
       });
     },
   });
@@ -67,6 +67,11 @@ function buildMap(container, expenses, categories, colors, onPinClick) {
   });
 
   map.addLayer(clusterGroup);
+
+  // The container often reaches its final size after this runs (flex/grid layout,
+  // fullscreen transition); recompute so tiles fill it instead of rendering grey.
+  setTimeout(() => map.invalidateSize(), 0);
+
   return map;
 }
 
@@ -82,24 +87,26 @@ function PinInfoCard({ colors, expense, categories, onClose }) {
         <p style={{ fontSize: 11.5, margin: 0, color: colors.inkFaint, fontFamily: SANS }}>{cat.name}{expense.payer ? ` · ${expense.payer}` : ""} · {formatRelativeDate(expense.date)}</p>
       </div>
       <p style={{ fontSize: 15, fontWeight: 600, margin: 0, color: colors.ink, fontFamily: SERIF, flexShrink: 0 }}>${formatMoney(expense.amount)}</p>
-      <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, flexShrink: 0 }}>
+      <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, flexShrink: 0 }} aria-label="Close">
         <X size={14} color={colors.inkFaint} />
       </button>
     </div>
   );
 }
 
-function LeafletMap({ colors, expenses, categories, fullscreen }) {
+function LeafletMap({ colors, expenses, categories }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [selectedExpense, setSelectedExpense] = useState(null);
 
   useEffect(() => {
-    if (!containerRef.current || !window.L || expenses.length === 0) return;
-    if (mapRef.current) { mapRef.current.remove(); }
-    mapRef.current = buildMap(containerRef.current, expenses, categories, colors, setSelectedExpense);
-    return () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; } };
-  }, [expenses, categories, colors, fullscreen]);
+    if (!containerRef.current || expenses.length === 0) return;
+    if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+    mapRef.current = buildMap(containerRef.current, expenses, colors, setSelectedExpense);
+    return () => {
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+    };
+  }, [expenses, colors]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -113,38 +120,6 @@ function LeafletMap({ colors, expenses, categories, fullscreen }) {
 
 export default function MapCard({ colors, expenses, categories }) {
   const [fullscreen, setFullscreen] = useState(false);
-  const [leafletReady, setLeafletReady] = useState(!!window.L);
-
-  useEffect(() => {
-    if (window.L) return;
-    const cssLink = document.createElement("link");
-    cssLink.rel = "stylesheet";
-    cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(cssLink);
-
-    const clusterCss = document.createElement("link");
-    clusterCss.rel = "stylesheet";
-    clusterCss.href = "https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css";
-    document.head.appendChild(clusterCss);
-
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.onload = () => {
-      const clusterScript = document.createElement("script");
-      clusterScript.src = "https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js";
-      clusterScript.onload = () => setLeafletReady(true);
-      document.head.appendChild(clusterScript);
-    };
-    document.head.appendChild(script);
-  }, []);
-
-  if (!leafletReady) {
-    return (
-      <div style={{ height: 180, background: colors.sand, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
-        <p style={{ fontSize: 13, color: colors.inkFaint, fontFamily: SANS }}>Loading map…</p>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -152,7 +127,7 @@ export default function MapCard({ colors, expenses, categories }) {
         style={{ height: 180, borderRadius: 12, overflow: "hidden", marginBottom: 24, cursor: "pointer", position: "relative" }}
         onClick={() => setFullscreen(true)}
       >
-        <LeafletMap colors={colors} expenses={expenses} categories={categories} fullscreen={false} />
+        <LeafletMap colors={colors} expenses={expenses} categories={categories} />
         <div style={{ position: "absolute", top: 8, right: 8, background: colors.surface, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontFamily: SANS, color: colors.inkSoft, zIndex: 400, pointerEvents: "none" }}>
           {expenses.length} located
         </div>
@@ -170,7 +145,7 @@ export default function MapCard({ colors, expenses, categories }) {
             {expenses.length} located
           </div>
           <div style={{ width: "100%", height: "100%" }}>
-            <LeafletMap colors={colors} expenses={expenses} categories={categories} fullscreen={true} />
+            <LeafletMap colors={colors} expenses={expenses} categories={categories} />
           </div>
         </div>
       )}
