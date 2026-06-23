@@ -60,7 +60,7 @@ test("expense editor", async ({ page }) => {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Create space" }).click();
   await page.waitForSelector("text=Overview");
-  await page.getByRole("button", { name: "Add" }).click();
+  await page.getByRole("button", { name: "Add expense" }).click();
   await page.waitForTimeout(400);
   await snap(page, "06-expense-editor");
 });
