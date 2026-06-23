@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    allowedHosts: ['host.docker.internal'],
+  },
   // Vitest transforms test files with esbuild, which defaults to the classic JSX
   // runtime. Force the automatic runtime there. Scope it to test runs only so it
   // doesn't clash with the oxc-based dev/build pipeline (which the React plugin
